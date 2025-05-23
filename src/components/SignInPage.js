@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from 'react-router-dom';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { CssVarsProvider, extendTheme, useColorScheme } from '@mui/joy/styles';
 import GlobalStyles from '@mui/joy/GlobalStyles';
 import CssBaseline from '@mui/joy/CssBaseline';
@@ -19,7 +20,8 @@ import Stack from '@mui/joy/Stack';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded';
-import GoogleIconImg from '../icons/google-logo.png';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function ColorSchemeToggle(props) {
   const { onClick, ...other } = props;
@@ -56,6 +58,34 @@ export default function SignIn() {
 
     const navigate = useNavigate();
 
+    //authentification with google
+    const handleSuccess = async (credentialResponse) => {
+    try {
+      const token = credentialResponse.credential; // JWT token from Google
+
+      
+      const response = await axios.post("http://localhost:8084/auth/google", 
+        { token },
+        {
+          withCredentials: true, 
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      const data = response.data;
+      localStorage.setItem("token", data.token); 
+      console.log("token", token)
+      toast.success("✅ Login successfully via Google !");
+      navigate("/");
+    } catch (error) {
+      console.error("Erreur d'authentification Google :", error);
+      toast.error("❌ Failed to log in via Google");
+    }
+  };
+
+     //manual authentification 
     const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('Remember Me:', rememberMe);
@@ -72,7 +102,7 @@ export default function SignIn() {
     const accessToken = response.data.token;
    // localStorage.setItem('token', accessToken);
    if (rememberMe) {
-      localStorage.setItem('token', accessToken); // persistant
+      localStorage.setItem('token', accessToken); 
     } else {
       sessionStorage.setItem('token', accessToken); // temporaire
     }
@@ -89,8 +119,8 @@ export default function SignIn() {
       const userRole = currentUserDetails.userEntity.role;
         if (userRole === 'SELLER' && !currentUserDetails.userEntity.submitted && !currentUserDetails.userEntity.approved) {
           navigate('/CompleteProfile');  
-        } else if (userRole === 'CONSUMER') {
-          navigate('/SignUp');  
+        } else if (userRole === 'ADMIN') {
+          navigate('/Back');  
         } else {
           navigate('/');  
         }
@@ -98,10 +128,7 @@ export default function SignIn() {
   }
 } catch (error) {
         if (error.response && error.response.status === 401) {
-            setError("UserName or password is incorrect");
-            setTimeout(() => {
-            setError('');
-            }, 4500);
+           toast.error("UserName or password is incorrect");
         } else {
             setError("Erreur inattendue, veuillez réessayer plus tard.");
         }
@@ -194,21 +221,16 @@ export default function SignIn() {
                   </Link>
                 </Typography>
               </Stack>
-              <Button
-                variant="soft"
-                color="neutral"
-                fullWidth
-                 startDecorator={
-                    <img
-                    src={GoogleIconImg}
-                    alt="Google"
-                    style={{ width: 20, height: 20 }}
-                    />
-                }
-              >
-                Continue with Google
-              </Button>
+              <GoogleOAuthProvider clientId="221870636622-p64vf5nl6gifde25a18dns2aq6s73668.apps.googleusercontent.com">
+                <GoogleLogin
+                  onSuccess={handleSuccess}
+                  onError={() => {
+                    console.log("Login Failed");
+                  }}
+                />
+              </GoogleOAuthProvider>
             </Stack>
+            
             <Divider
               sx={(theme) => ({
                 [theme.getColorSchemeSelector('light')]: {
@@ -219,6 +241,7 @@ export default function SignIn() {
               or
             </Divider>
             <Stack sx={{ gap: 4, mt: 2 }}>
+              
               <form onSubmit={handleSubmit}  >
                 <FormControl required>
                   <FormLabel>Email</FormLabel>
@@ -252,9 +275,7 @@ export default function SignIn() {
                   </Button>
                 {error && <div style={{ color: 'red', marginTop: '10px' }}>{error}</div>} 
                 </Stack>
-                
               </form>
-             
             </Stack>
           </Box>
           <Box component="footer" sx={{ py: 3 }}>
@@ -263,6 +284,7 @@ export default function SignIn() {
             </Typography>
           </Box>
         </Box>
+        <ToastContainer/>
       </Box>
       <Box
         sx={(theme) => ({
